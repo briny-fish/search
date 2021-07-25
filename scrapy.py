@@ -107,6 +107,8 @@ with open('en_test_urls.csv','r',encoding='utf-8') as f:
         title = tmp[1][:-1]
         html = get_html_text(url)
         data = html2text.html2text(html)
+        data = re.sub('\n\n','',data)
+        data = re.sub('\t\r',' ',data)
         id = esObj_en.Get_Data_Id(url)['_id']
         esObj_en.Update(id,data)
         break

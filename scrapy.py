@@ -87,7 +87,7 @@ def get_html_text(url):
         'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 11_2_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36',
         'cookies': 'targetEncodinghttp://127001=2; wdcid=582f7d0386e28398; validateCode=S3YKEJrhCFtfeUFcYnWJEg%3D%3D; JSESSIONID=EB65199DB7FE5D13DE83ABDBAC5E4884; pageSize=20; pageNo=4'
     }
-    html = requests.get(url, headers=headers)
+    html = requests.get(url, headers=headers,timeout=3)
     html.raise_for_status()
     html.encoding = "utf-8"
     #print(etree.tostring(etree.HTML(html.text)))
@@ -95,31 +95,31 @@ def get_html_text(url):
 
 
 urllist = []
-outfile_en = open('fail_url_en','w',encoding='utf-8')
-outfile_tr = open('fail_url_tr','w',encoding='utf-8')
+# outfile_en = open('fail_url_en','w',encoding='utf-8')
+outfile_tr = open('fail_url_tr1','w',encoding='utf-8')
 esObj_en = ElasticObj('en_url_test', '_doc')
 esObj_tr = ElasticObj('tr_url_test', '_doc')
-with open('en_test_urls.csv','r',encoding='utf-8') as f:
-    f.readline()
-    cnt = 0
-    for line in f.readlines():
-        print(cnt)
-        cnt+=1
-        tmp = line.split('')
-        url = tmp[0]
-        title = tmp[1][:-1]
-        try:
-            html = get_html_text(url)
-            data = html2text.html2text(html)
-            data = re.sub('\n\n','',data)
-
-            data = re.sub('[\t\r]',' ',data)
-
-            #print(data)
-            id = esObj_en.Get_Data_Id(url)['_id']
-            esObj_en.Update(id,data)
-        except:
-            outfile_en.write(url+'\n')
+# with open('en_test_urls.csv','r',encoding='utf-8') as f:
+#     f.readline()
+#     cnt = 0
+#     for line in f.readlines():
+#         print(cnt)
+#         cnt+=1
+#         tmp = line.split('')
+#         url = tmp[0]
+#         title = tmp[1][:-1]
+#         try:
+#             html = get_html_text(url)
+#             data = html2text.html2text(html)
+#             data = re.sub('\n\n','',data)
+#
+#             data = re.sub('[\t\r]',' ',data)
+#
+#             #print(data)
+#             id = esObj_en.Get_Data_Id(url)['_id']
+#             esObj_en.Update(id,data)
+#         except:
+#             outfile_en.write(url+'\n')
 
 with open('tr_test_urls.csv','r',encoding='utf-8') as f:
     f.readline()

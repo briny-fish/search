@@ -9,9 +9,93 @@ import json
 import re
 import html2text
 import time
+# -*- coding:utf-8 -*-
+import pandas as pd
+import re
+
+
+import jieba
+
+
+def filter_tags(htmlstr):
+    """
+    # Python通过正则表达式去除(过滤)HTML标签
+    :param htmlstr:
+    :return:
+    """
+    # 先过滤CDATA
+    re_cdata = re.compile('//<!\
+    CDATA\[[ >]∗ //\
+    CDATA\[[ >]∗ //\
+    \] > ',re.I) #匹配CDATA
+    re_script = re.compile('<\s*script[^>]*>[^<]*<\s*/\s*script\s*>', re.I)
+    # Script
+    re_style = re.compile('<\s*style[^>]*>[^<]*<\s*/\s*style\s*>', re.I)
+    # style
+    re_br = re.compile('<br\s*?/?>')
+    # 处理换行
+    re_h = re.compile('</?\w+[^>]*>')
+    # HTML标签
+    re_comment = re.compile('<!--[^>]*-->')
+    # HTML注释
+    s = re_cdata.sub('', htmlstr)
+    # 去掉CDATA
+    s = re_script.sub('', s)  # 去掉SCRIPT
+    s = re_style.sub('', s)
+    # 去掉style
+    s = re_br.sub('\n', s)
+    # 将br转换为换行
+    s = re_h.sub('', s)  # 去掉HTML 标签
+    s = re_comment.sub('', s)
+    # 去掉HTML注释
+    # 去掉多余的空行
+    blank_line = re.compile('\n+')
+    s = blank_line.sub('\n', s)
+    s = replaceCharEntity(s)  # 替换实体
+    return s
+
+
+
+def replaceCharEntity(htmlstr):
+    """
+    :param htmlstr:HTML字符串
+    :function:过滤HTML中的标签
+    """
+    CHAR_ENTITIES = {'nbsp': ' ', '160': ' ',
+                     'lt': '<', '60': '<',
+                     'gt': '>', '62': '>',
+                     'amp': '&', '38': '&',
+                     'quot': '"', '34': '"', }
+
+    re_charEntity = re.compile(r'&#?(?P<name>\w+);')
+    sz = re_charEntity.search(htmlstr)
+    while sz:
+        entity = sz.group()  # entity全称，如>
+        key = sz.group('name')  # 去除&;后entity,如>为gt
+        try:
+            htmlstr = re_charEntity.sub(CHAR_ENTITIES[key], htmlstr, 1)
+            sz = re_charEntity.search(htmlstr)
+        except KeyError:
+            # 以空串代替
+            htmlstr = re_charEntity.sub('', htmlstr, 1)
+            sz = re_charEntity.search(htmlstr)
+    return htmlstr
+
+
+def repalce(s, re_exp, repl_string):
+    return re_exp.sub(repl_string,s)
+
+
+
+import re
+def Cleaning_data(x):
+    m2=str(x).replace('<p>&nbsp; &nbsp; &nbsp; &nbsp;','').replace('</p><p><br></p>','').replace('<br>','').replace('</p>','').replace('<p>','').replace('       ','').replace('[图片]','').strip()
+    m3=filter_tags(m2)
+    m4=replaceCharEntity(m3)
+    return m4
 
 class ElasticObj:
-    def __init__(self, index_name, index_type, ip="114.212.84.4"):
+    def __init__(self, index_name, index_type, ip="localhost"):
         self.index_name = index_name
         self.index_type = index_type
         self.cnt = 0
@@ -95,10 +179,13 @@ def get_html_text(url):
 
 
 urllist = []
-# outfile_en = open('fail_url_en','w',encoding='utf-8')
-outfile_tr = open('fail_url_tr1','w',encoding='utf-8')
+
+# outfile_tr = open('fail_url_tr1','a+',encoding='utf-8')
 esObj_en = ElasticObj('en_url_test', '_doc')
-esObj_tr = ElasticObj('tr_url_test', '_doc')
+url_en = open('fail_url_tr','r',encoding='utf-8')
+url_en = [x[:-1] for x in url_en.readlines()]
+
+# esObj_tr = ElasticObj('tr_url_test', '_doc')
 # with open('en_test_urls.csv','r',encoding='utf-8') as f:
 #     f.readline()
 #     cnt = 0
@@ -121,25 +208,45 @@ esObj_tr = ElasticObj('tr_url_test', '_doc')
 #         except:
 #             outfile_en.write(url+'\n')
 
-with open('tr_test_urls.csv','r',encoding='utf-8') as f:
-    f.readline()
+outfile_en = open('fail_url_en', 'a', encoding='utf-8')
+def proc(lines,i):
     cnt = 0
-    for line in f.readlines():
-        print(cnt)
+    totF = 0
+    for line in lines:
+        #print(cnt)
         cnt+=1
         tmp = line.split('')
         url = tmp[0]
-        title = tmp[1][:-1]
         try:
             html = get_html_text(url)
-            data = html2text.html2text(html)
-            data = re.sub('\n\n','',data)
+            data = Cleaning_data(html)
+            data = re.sub('\n','',data)
+            data = re.sub('  ', ' ', data)
+            data = re.sub('  ', ' ', data)
+            data = re.sub('  ', ' ', data)
+            data = re.sub('  ', ' ', data)
+            data = re.sub('  ', ' ', data)
+            id = esObj_en.Get_Data_Id(url)['_id']
+            esObj_en.Update(id,data)
 
-            data = re.sub('[\t\r]',' ',data)
-
-            #print(data)
-            id = esObj_tr.Get_Data_Id(url)['_id']
-            esObj_tr.Update(id,data)
         except:
-            outfile_tr.write(url+'\n')
+            totF+=1
+            print('process:%s tot%s,totF%s'%(i,cnt,totF))
 
+            outfile_en.write(url+'\n')
+            outfile_en.flush()
+            # outfile_en.close()
+
+from multiprocessing import Process,Lock
+if  __name__=='__main__':
+
+    totlen = 710000
+    per = int(totlen/60)
+    f = open('en_test_urls.csv', 'r', encoding='utf-8')
+    f.readline()
+    lines = f.readlines()
+    pcnt = 0
+    for l in range(0,totlen,per):
+        p = Process(target=proc,args=(lines[l:l+per],pcnt))
+        pcnt+=1
+        p.start()
